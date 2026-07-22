@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel SQL生成工具</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+        .upload-area.dragover {
+            background: #e8ebff;
+            border-color: #764ba2;
+        }
+        .upload-icon {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+        #fileInput {
+            display: none;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+        }
+        .btn-success:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            resize: none;
+            transition: border-color 0.3s;
+            overflow-y: hidden;
+        }
+        .CodeMirror {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            height: auto;
+            min-height: 100px;
+        }
+        .CodeMirror-scroll {
+            min-height: 100px;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .preview-box {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .preview-box pre {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .columns-info {
+            background: #f8f9ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .columns-info h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .column-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            margin: 3px;
+            cursor: pointer;
+            transition: all 0.3s;
+            user-select: none;
+        }
+        .column-tag:hover {
+            background: #764ba2;
+            transform: scale(1.05);
+        }
+        .column-tag:active {
+            transform: scale(0.95);
+        }
+        .alert {
+            padding: 15px 25px;
+            border-radius: 8px;
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease-out, top 0.3s ease-out;
+        }
+        .alert.alert-visible {
+            opacity: 1;
+        }
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        .alert-info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #90caf9;
+        }
+        .data-preview {
+            margin-top: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f5f5f5;
+            overflow-x: auto;
+        }
+        .data-preview table {
+            min-width: max-content;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .data-preview th, .data-preview td {
+            border: 1px solid #ddd;
+            padding: 4px 8px;
+            text-align: left;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .data-preview th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+        .data-preview tr:nth-child(even) {
+            background: #f8f9ff;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Excel SQL生成工具</h1>
+            <p>上传Excel文件，输入SQL模板，自动生成批量SQL语句</p>
+			<p>XWR制作</p>
+        </div>
+        <div class="content">
+            <div id="alertArea"></div>
+            
+            <div class="section">
+                <div class="section-title">步骤1：上传Excel文件</div>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">点击或拖拽Excel文件到此处上传</div>
+                    <p style="font-size: 12px; color: #999; margin-top: 10px;">支持 .xlsx 和 .xls 格式</p>
+                </div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls">
+            </div>
+            
+            <div class="section" id="columnsSection" style="display: none;">
+                <div class="section-title">可用列信息</div>
+                <div class="columns-info" id="columnsInfo"></div>
+                <div class="data-preview" id="dataPreview"></div>
+            </div>
+            
+            <div class="section" id="templateSection" style="display: none;">
+                <div class="section-title">步骤2：输入SQL模板</div>
+                <p style="margin-bottom: 10px; color: #666; font-size: 14px;">
+                    使用 $column1$, $column2$, $column3$... 代表Excel中的列，工具会自动替换为实际值
+                </p>
+                <textarea id="sqlTemplate" placeholder="例如: update table1 set age = $column2$ where name = $column1$"></textarea>
+                <div class="button-group">
+                    <button class="btn btn-primary" id="generateBtn" onclick="generateSQL()">生成SQL</button>
+                </div>
+            </div>
+            
+            <div class="section" id="resultSection" style="display: none;">
+                <div class="section-title">步骤3：预览与下载</div>
+                <p style="margin-bottom: 10px; color: #666; font-size: 14px;" id="resultCount"></p>
+                <div class="preview-box">
+                    <pre id="sqlResult"></pre>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="downloadSQL()">下载TXT文件</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+    <script>
+        let excelData = null;
+        let columns = [];
+        let generatedSQL = '';
+        let editor = null;
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const textarea = document.getElementById('sqlTemplate');
+            editor = CodeMirror.fromTextArea(textarea, {
+                mode: 'text/x-sql',
+                theme: 'default',
+                lineNumbers: false,
+                lineWrapping: true,
+                indentUnit: 4,
+                tabSize: 4,
+                indentWithTabs: false,
+                viewportMargin: Infinity
+            });
+        });
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        let alertQueue = [];
+
+        function showAlert(message, type = 'info', duration = 5000) {
+            const alertArea = document.getElementById('alertArea');
+            const alertId = 'alert-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            
+            const alertEl = document.createElement('div');
+            alertEl.id = alertId;
+            alertEl.className = `alert alert-${type}`;
+            alertEl.textContent = message;
+            alertEl.style.top = '20px';
+            
+            alertArea.appendChild(alertEl);
+            
+            requestAnimationFrame(() => {
+                alertEl.classList.add('alert-visible');
+            });
+            
+            const timerId = setTimeout(() => {
+                removeAlert(alertId);
+            }, duration);
+            
+            alertQueue.push({
+                id: alertId,
+                element: alertEl,
+                timerId: timerId
+            });
+        }
+
+        function removeAlert(alertId) {
+            const alertIndex = alertQueue.findIndex(a => a.id === alertId);
+            if (alertIndex === -1) return;
+            
+            const alertInfo = alertQueue[alertIndex];
+            const alertEl = alertInfo.element;
+            
+            if (alertInfo.timerId) {
+                clearTimeout(alertInfo.timerId);
+            }
+            
+            alertEl.classList.remove('alert-visible');
+            
+            setTimeout(() => {
+                if (alertEl.parentNode) {
+                    alertEl.remove();
+                }
+                if (alertIndex !== -1 && alertQueue[alertIndex] && alertQueue[alertIndex].id === alertId) {
+                    alertQueue.splice(alertIndex, 1);
+                }
+            }, 300);
+        }
+
+        function handleFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.style.opacity = '0.5';
+            uploadArea.style.pointerEvents = 'none';
+            
+            showAlert(`正在解析Excel文件 (${(file.size / 1024 / 1024).toFixed(2)} MB)...`, 'info');
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                uploadArea.style.opacity = '1';
+                uploadArea.style.pointerEvents = 'auto';
+                
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                } else {
+                    excelData = data.data;
+                    columns = data.columns;
+                    showColumnsInfo();
+                    showDataPreview();
+                    document.getElementById('columnsSection').style.display = 'block';
+                    document.getElementById('templateSection').style.display = 'block';
+                    document.getElementById('resultSection').style.display = 'none';
+                    
+                    setTimeout(function() {
+                        editor.refresh();
+                    }, 100);
+                    
+                    showAlert(`成功读取 ${data.row_count} 行数据，${data.col_count} 列！`, 'success');
+                }
+            })
+            .catch(error => {
+                uploadArea.style.opacity = '1';
+                uploadArea.style.pointerEvents = 'auto';
+                showAlert('上传失败: ' + error, 'error');
+            });
+        }
+
+        function showColumnsInfo() {
+            const columnsInfo = document.getElementById('columnsInfo');
+            let html = '<h4>可用占位符：</h4>';
+            columns.forEach((col, index) => {
+                const displayPlaceholder = `column${index + 1}`;
+                const copyPlaceholder = `$column${index + 1}$`;
+                html += `<span class="column-tag" onclick="copyPlaceholder('${copyPlaceholder}', '${col}')" title="点击复制 ${copyPlaceholder}">${displayPlaceholder} → ${col}</span>`;
+            });
+            columnsInfo.innerHTML = html;
+        }
+
+        function copyPlaceholder(placeholder, colName) {
+            const textarea = document.createElement('textarea');
+            textarea.value = placeholder;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '-9999px';
+            textarea.style.opacity = '0';
+            textarea.style.zIndex = '-9999';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showAlert(`已复制[${colName}]`, 'success', 2000);
+                } else {
+                    showAlert('复制失败，请手动复制', 'error', 2000);
+                }
+            } catch (err) {
+                showAlert('复制失败，请手动复制', 'error', 2000);
+            }
+            
+            document.body.removeChild(textarea);
+        }
+
+        function showDataPreview() {
+            const dataPreview = document.getElementById('dataPreview');
+            let html = '<h4 style="margin-bottom: 10px;">数据预览（前3行）：</h4>';
+            html += '<table>';
+            html += '<thead><tr>';
+            columns.forEach(col => {
+                html += `<th title="${col}">${col}</th>`;
+            });
+            html += '</tr></thead>';
+            html += '<tbody>';
+            excelData.slice(0, 3).forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    const value = row[col] !== null && row[col] !== undefined ? row[col] : '';
+                    html += `<td title="${value}">${value}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody>';
+            html += '</table>';
+            if (excelData.length > 3) {
+                html += `<p style="margin-top: 10px; color: #999; font-size: 12px;">... 还有 ${excelData.length - 3} 行数据</p>`;
+            }
+            dataPreview.innerHTML = html;
+        }
+
+        function generateSQL() {
+            const template = editor.getValue();
+            const generateBtn = document.getElementById('generateBtn');
+            
+            if (!template.trim()) {
+                showAlert('请输入SQL模板', 'error');
+                return;
+            }
+            
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="loading-spinner"></span>正在生成...';
+            
+            showAlert('正在生成SQL...', 'info');
+            
+            fetch('/generate_sql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    template: template,
+                    data: excelData,
+                    columns: columns
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '生成SQL';
+                
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                } else {
+                    generatedSQL = data.sql;
+                    document.getElementById('sqlResult').textContent = data.sql;
+                    document.getElementById('resultCount').textContent = `共生成 ${data.count} 条SQL语句`;
+                    document.getElementById('resultSection').style.display = 'block';
+                    showAlert('SQL生成成功！', 'success');
+                }
+            })
+            .catch(error => {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '生成SQL';
+                showAlert('生成SQL失败: ' + error, 'error');
+            });
+        }
+
+        function downloadSQL() {
+            if (!generatedSQL) {
+                showAlert('没有可下载的SQL内容', 'error');
+                return;
+            }
+            
+            fetch('/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sql: generatedSQL
+                })
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'generated_sql.txt';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                showAlert('下载成功！', 'success');
+            })
+            .catch(error => {
+                showAlert('下载失败: ' + error, 'error');
+            });
+        }
+    </script>
+</body>
+</html>
