@@ -300,9 +300,9 @@
             <div class="section" id="templateSection" style="display: none;">
                 <div class="section-title">步骤2：输入SQL模板</div>
                 <p style="margin-bottom: 10px; color: #666; font-size: 14px;">
-                    使用 $column1$, $column2$, $column3$... 代表Excel中的列，工具会自动替换为实际值
+                    使用 $column1$, $column2$ 代表Excel列，点击占位符复制带单引号的版本，不需要引号时手动去掉即可
                 </p>
-                <textarea id="sqlTemplate" placeholder="例如: update table1 set age = $column2$ where name = $column1$"></textarea>
+                <textarea id="sqlTemplate" placeholder="例如: update table1 set age = $column2$ where name = '$column1$'"></textarea>
                 <div class="button-group">
                     <button class="btn btn-primary" id="generateBtn" onclick="generateSQL()">生成SQL</button>
                 </div>
@@ -316,6 +316,7 @@
                 </div>
                 <div class="button-group">
                     <button class="btn btn-success" onclick="downloadSQL()">下载TXT文件</button>
+                    <button class="btn btn-success" onclick="copySQLToClipboard()" id="copyBtn">复制文本</button>
                 </div>
             </div>
         </div>
@@ -472,11 +473,24 @@
             const columnsInfo = document.getElementById('columnsInfo');
             let html = '<h4>可用占位符：</h4>';
             columns.forEach((col, index) => {
-                const displayPlaceholder = `column${index + 1}`;
-                const copyPlaceholder = `$column${index + 1}$`;
-                html += `<span class="column-tag" onclick="copyPlaceholder('${copyPlaceholder}', '${col}')" title="点击复制 ${copyPlaceholder}">${displayPlaceholder} → ${col}</span>`;
+                const displayPlaceholder = `$column${index + 1}$`;
+                const copyPlaceholder = `'$column${index + 1}$'`;
+                html += `<span class="column-tag" data-copy="${escapeHtml(copyPlaceholder)}" data-col="${escapeHtml(col)}" title="点击复制 ${escapeHtml(copyPlaceholder)}">${escapeHtml(displayPlaceholder)} → ${escapeHtml(col)}</span>`;
             });
             columnsInfo.innerHTML = html;
+
+            // 绑定点击事件
+            columnsInfo.querySelectorAll('.column-tag').forEach(tag => {
+                tag.addEventListener('click', function() {
+                    const placeholder = this.getAttribute('data-copy');
+                    const colName = this.getAttribute('data-col');
+                    copyPlaceholder(placeholder, colName);
+                });
+            });
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function copyPlaceholder(placeholder, colName) {
@@ -608,6 +622,40 @@
             .catch(error => {
                 showAlert('下载失败: ' + error, 'error');
             });
+        }
+        function copySQLToClipboard() {
+            if (!generatedSQL) {
+                showAlert('没有可复制的SQL内容', 'error');
+                return;
+            }
+            const textarea = document.createElement('textarea');
+            textarea.value = generatedSQL;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '-9999px';
+            textarea.style.opacity = '0';
+            textarea.style.zIndex = '-9999';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    const copyBtn = document.getElementById('copyBtn');
+                    copyBtn.textContent = '已复制!';
+                    copyBtn.style.opacity = '0.8';
+                    showAlert('SQL内容已复制到剪贴板', 'success', 2000);
+                    setTimeout(() => {
+                        copyBtn.textContent = '复制文本';
+                        copyBtn.style.opacity = '1';
+                    }, 1500);
+                } else {
+                    showAlert('复制失败，请手动复制', 'error', 2000);
+                }
+            } catch (err) {
+                showAlert('复制失败，请手动复制', 'error', 2000);
+            }
+            document.body.removeChild(textarea);
         }
     </script>
 </body>

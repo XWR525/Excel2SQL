@@ -122,9 +122,6 @@ def generate_sql():
                 
                 if value is None:
                     sql_value = 'NULL'
-                elif isinstance(value, str):
-                    value = value.replace("'", "''")
-                    sql_value = f"'{value}'"
                 else:
                     sql_value = str(value)
                 

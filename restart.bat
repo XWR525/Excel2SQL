@@ -1,33 +1,41 @@
 @echo off
-echo ========================================
-echo   Restart Service
-echo ========================================
-echo.
+title Excel SQL Tool - Restart
 
-echo [1/3] Stopping Python processes...
+:: Get LAN IPv4 address
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4" ^| findstr /v /c:"127.0."') do (
+    set "IP=%%a"
+    goto :got_ip
+)
+:got_ip
+set "IP=%IP: =%"
+
+echo.
+echo   ===========================================
+echo          Excel SQL Generator
+echo          v1.0 - Restarting...
+echo          Design by XWR
+echo   ===========================================
+echo.
+echo   [1/3] Stopping old processes...
+
 taskkill /F /IM python.exe >nul 2>&1
 if %errorlevel% equ 0 (
-    echo   Python processes stopped
+    echo         Python stopped.
 ) else (
-    echo   No running Python processes found
+    echo         No running process found.
 )
 
 echo.
-echo [2/3] Waiting 2 seconds...
-timeout /t 2 /nobreak >nul
-
+echo   [2/3] Starting service...
 echo.
-echo [3/3] Starting service...
+echo   +--------------------------------------+
+echo     Local:  http://127.0.0.1:5000           
+echo     LAN:    http://%IP%:5000                 
+echo   +--------------------------------------+
 echo.
-echo Service URLs:
-echo   - Local: http://127.0.0.1:5000
-echo   - LAN: http://[your IP]:5000
+echo   [3/3] Ready! Press Ctrl+C to stop.
 echo.
-echo Press Ctrl+C to stop
-echo.
-echo ========================================
+echo   ===========================================
 echo.
 
 python app.py
-
-pause
