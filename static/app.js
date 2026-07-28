@@ -21,6 +21,17 @@ document.addEventListener('DOMContentLoaded', function() {
         viewportMargin: Infinity
     });
 
+    // 用 CSS 实现 placeholder，与占位符搜索框的方式一致
+    var wrapper = editor.getWrapperElement();
+    var codeEl = wrapper.querySelector('.CodeMirror-code');
+    if (codeEl) {
+        codeEl.setAttribute('data-placeholder', textarea.getAttribute('placeholder') || '');
+        wrapper.classList.add('CodeMirror-empty');
+        editor.on('change', function() {
+            wrapper.classList.toggle('CodeMirror-empty', editor.getValue().length === 0);
+        });
+    }
+
     const savedLayout = localStorage.getItem('layoutMode');
     const isTwoColumn = savedLayout === 'two';
     document.body.classList.toggle('two-column', isTwoColumn);
@@ -129,6 +140,7 @@ function showAlert(message, type = 'info', duration = 5000) {
         element: alertEl,
         timerId: timerId
     });
+    return alertId;
 }
 
 function removeAlert(alertId) {
@@ -302,9 +314,9 @@ function markLastCopied(tagElement) {
     }
 }
 
-function copyPlaceholder(placeholder, colName, tagElement) {
+function copyToClipboard(text) {
     const textarea = document.createElement('textarea');
-    textarea.value = placeholder;
+    textarea.value = text;
     textarea.style.position = 'fixed';
     textarea.style.left = '-9999px';
     textarea.style.top = '-9999px';
@@ -314,19 +326,23 @@ function copyPlaceholder(placeholder, colName, tagElement) {
     textarea.focus();
     textarea.select();
     
+    let success = false;
     try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            markLastCopied(tagElement);
-            showAlert(`已复制[${colName}]`, 'success', 2000);
-        } else {
-            showAlert('复制失败，请手动复制', 'error', 2000);
-        }
+        success = document.execCommand('copy');
     } catch (err) {
+        // ignore
+    }
+    document.body.removeChild(textarea);
+    return success;
+}
+
+function copyPlaceholder(placeholder, colName, tagElement) {
+    if (copyToClipboard(placeholder)) {
+        markLastCopied(tagElement);
+        showAlert(`✅已复制[${colName}]`, 'success', 2000);
+    } else {
         showAlert('复制失败，请手动复制', 'error', 2000);
     }
-    
-    document.body.removeChild(textarea);
 }
 
 function showDataPreview() {
@@ -335,7 +351,7 @@ function showDataPreview() {
     html += '<table>';
     html += '<thead><tr>';
     columns.forEach(col => {
-        html += `<th title="${col}">${col}</th>`;
+        html += `<th title="${escapeHtml(col)}">${escapeHtml(col)}</th>`;
     });
     html += '</tr></thead>';
     html += '<tbody>';
@@ -343,7 +359,7 @@ function showDataPreview() {
         html += '<tr>';
         columns.forEach(col => {
             const value = row[col] !== null && row[col] !== undefined ? row[col] : '';
-            html += `<td title="${value}">${value}</td>`;
+            html += `<td title="${escapeHtml(value)}">${escapeHtml(value)}</td>`;
         });
         html += '</tr>';
     });
@@ -367,7 +383,7 @@ function generateSQL() {
     generateBtn.disabled = true;
     generateBtn.innerHTML = '<span class="loading-spinner"></span>正在生成...';
     
-    showAlert('正在生成SQL...', 'info');
+    const progressAlertId = showAlert('正在生成SQL...', 'info');
     
     fetch('/generate_sql', {
         method: 'POST',
@@ -384,6 +400,7 @@ function generateSQL() {
     .then(data => {
         generateBtn.disabled = false;
         generateBtn.innerHTML = '生成SQL';
+        removeAlert(progressAlertId);
         
         if (data.error) {
             showAlert(data.error, 'error');
@@ -403,6 +420,7 @@ function generateSQL() {
     .catch(error => {
         generateBtn.disabled = false;
         generateBtn.innerHTML = '生成SQL';
+        removeAlert(progressAlertId);
         showAlert('生成SQL失败: ' + error, 'error');
     });
 }
@@ -412,18 +430,8 @@ function downloadSQL() {
         showAlert('没有可下载的SQL内容', 'error');
         return;
     }
-    
-    fetch('/download', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            sql: generatedSQL
-        })
-    })
-    .then(response => response.blob())
-    .then(blob => {
+    try {
+        const blob = new Blob([generatedSQL], { type: 'text/plain;charset=utf-8' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -433,42 +441,25 @@ function downloadSQL() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         showAlert('下载成功！', 'success');
-    })
-    .catch(error => {
+    } catch (error) {
         showAlert('下载失败: ' + error, 'error');
-    });
+    }
 }
 function copySQLToClipboard() {
     if (!generatedSQL) {
         showAlert('没有可复制的SQL内容', 'error');
         return;
     }
-    const textarea = document.createElement('textarea');
-    textarea.value = generatedSQL;
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
-    textarea.style.top = '-9999px';
-    textarea.style.opacity = '0';
-    textarea.style.zIndex = '-9999';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            const copyBtn = document.getElementById('copyBtn');
-            copyBtn.textContent = '已复制!';
-            copyBtn.style.opacity = '0.8';
-            showAlert('SQL内容已复制到剪贴板', 'success', 2000);
-            setTimeout(() => {
-                copyBtn.textContent = '复制文本';
-                copyBtn.style.opacity = '1';
-            }, 1500);
-        } else {
-            showAlert('复制失败，请手动复制', 'error', 2000);
-        }
-    } catch (err) {
+    if (copyToClipboard(generatedSQL)) {
+        const copyBtn = document.getElementById('copyBtn');
+        copyBtn.textContent = '✅已复制!';
+        copyBtn.style.opacity = '0.8';
+        showAlert('✅SQL内容已复制到剪贴板', 'success', 2000);
+        setTimeout(() => {
+            copyBtn.textContent = '复制文本';
+            copyBtn.style.opacity = '1';
+        }, 1500);
+    } else {
         showAlert('复制失败，请手动复制', 'error', 2000);
     }
-    document.body.removeChild(textarea);
 }

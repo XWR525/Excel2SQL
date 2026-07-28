@@ -1,9 +1,6 @@
-from flask import Flask, render_template, request, send_file, jsonify, Response, stream_with_context
-import pandas as pd
-import io
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 import os
 import json
-from werkzeug.utils import secure_filename
 from datetime import datetime, date
 
 app = Flask(__name__)
@@ -28,18 +25,6 @@ def save_sql_template(template):
     except Exception as e:
         print(f'保存SQL模板失败: {e}')
         return False
-
-def convert_value(value):
-    """将pandas读取的值转为可JSON序列化的格式，同时保留长数字精度"""
-    if pd.isna(value):
-        return None
-    if isinstance(value, (datetime, date)):
-        return value.strftime('%Y-%m-%d')
-    if isinstance(value, float):
-        return str(value)
-    if isinstance(value, (int)):
-        return str(value)
-    return str(value)
 
 @app.route('/')
 def index():
@@ -124,26 +109,15 @@ def generate_sql():
         save_sql_template(template)
         
         sql_statements = []
+        placeholder_keys = [(f'$column{idx + 1}$', idx) for idx in range(len(columns))]
+        placeholder_keys.sort(key=lambda x: len(x[0]), reverse=True)
+        
         for row in excel_data:
             sql = template
-            
-            placeholders = []
-            for idx, col in enumerate(columns):
-                placeholder = f'$column{idx + 1}$'
-                value = row.get(col)
-                
-                if value is None:
-                    sql_value = 'NULL'
-                else:
-                    sql_value = str(value)
-                
-                placeholders.append((placeholder, sql_value))
-            
-            placeholders.sort(key=lambda x: len(x[0]), reverse=True)
-            
-            for placeholder, sql_value in placeholders:
+            for placeholder, idx in placeholder_keys:
+                value = row.get(columns[idx])
+                sql_value = 'NULL' if value is None else str(value)
                 sql = sql.replace(placeholder, sql_value)
-            
             sql_statements.append(sql)
         
         output = '\n'.join(sql_statements)
@@ -160,31 +134,6 @@ def generate_sql():
         error_msg = f'生成SQL失败: {str(e)}\n{traceback.format_exc()}'
         print(error_msg)
         return jsonify({'error': f'生成SQL失败: {str(e)}'}), 400
-
-@app.route('/download', methods=['POST'])
-def download_sql():
-    try:
-        data = request.get_json()
-        sql_content = data.get('sql', '')
-        
-        if not sql_content:
-            return jsonify({'error': '没有SQL内容可下载'}), 400
-        
-        output = io.BytesIO()
-        output.write(sql_content.encode('utf-8'))
-        output.seek(0)
-        
-        return send_file(
-            output,
-            mimetype='text/plain',
-            as_attachment=True,
-            download_name='generated_sql.txt'
-        )
-    except Exception as e:
-        import traceback
-        error_msg = f'下载失败: {str(e)}\n{traceback.format_exc()}'
-        print(error_msg)
-        return jsonify({'error': f'下载失败: {str(e)}'}), 400
 
 if __name__ == '__main__':
     import sys

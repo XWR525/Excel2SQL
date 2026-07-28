@@ -240,6 +240,23 @@ textarea {
 .CodeMirror-scroll {
     min-height: 100px;
 }
+.CodeMirror-empty .CodeMirror-code {
+    position: relative;
+}
+.CodeMirror-empty .CodeMirror-code::before {
+    content: attr(data-placeholder);
+    position: absolute;
+    left: 4px;
+    top: 0;
+    color: #757575;
+    opacity: 0.6;
+    font-size: 14px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    line-height: inherit;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 2;
+}
 textarea:focus {
     outline: none;
     border-color: #667eea;
@@ -267,6 +284,10 @@ textarea:focus {
     margin-bottom: 12px;
     transition: border-color 0.3s;
     font-family: inherit;
+}
+.column-search::placeholder {
+    color: #757575;
+    opacity: 0.6;
 }
 .column-search:focus {
     outline: none;
