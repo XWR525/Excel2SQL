@@ -172,4 +172,7 @@ def download_sql():
         return jsonify({'error': f'下载失败: {str(e)}'}), 400
 
 if __name__ == '__main__':
+    import sys
+    _stderr_write = sys.stderr.write
+    sys.stderr.write = lambda s: _stderr_write(s) if 'development server' not in s else None
     app.run(debug=False, host='0.0.0.0', port=5000)
