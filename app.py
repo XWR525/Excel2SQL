@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
+import io
 import os
 import json
 from datetime import datetime, date
@@ -42,11 +43,12 @@ def upload_file():
     if not allowed_file(file.filename):
         return jsonify({'error': '只支持Excel文件 (.xlsx, .xls)'}), 400
     
+    file_bytes = file.read()
+    
     def generate():
         try:
             import openpyxl
-            file.stream.seek(0)
-            wb = openpyxl.load_workbook(file.stream, read_only=True, data_only=True)
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
             ws = wb.active
             total = max((ws.max_row or 1) - 1, 0)
             yield json.dumps({'type': 'progress', 'loaded': 0, 'total': total}) + '\n'
