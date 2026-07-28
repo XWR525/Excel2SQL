@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, send_file, jsonify, Response, stream_with_context
 import pandas as pd
 import io
 import os
@@ -57,43 +57,55 @@ def upload_file():
     if not allowed_file(file.filename):
         return jsonify({'error': '只支持Excel文件 (.xlsx, .xls)'}), 400
     
-    try:
-        import openpyxl
-        file.seek(0)
-        wb = openpyxl.load_workbook(file, data_only=True)
-        ws = wb.active
-        
-        rows = list(ws.iter_rows(values_only=True))
-        if not rows:
-            return jsonify({'error': 'Excel文件为空'}), 400
-        
-        columns = [str(c) if c is not None else '' for c in rows[0]]
-        columns = [c if c else f'column{i+1}' for i, c in enumerate(columns)]
-        
-        data = []
-        for row in rows[1:]:
-            row_data = {}
-            for idx, col in enumerate(columns):
-                val = row[idx] if idx < len(row) else None
-                if val is None or (isinstance(val, str) and val.strip() == ''):
-                    row_data[col] = None
-                elif isinstance(val, (datetime, date)):
-                    row_data[col] = val.strftime('%Y-%m-%d')
-                else:
-                    row_data[col] = str(val)
-            data.append(row_data)
-        
-        return jsonify({
-            'columns': columns,
-            'data': data,
-            'row_count': len(data),
-            'col_count': len(columns)
-        })
-    except Exception as e:
-        import traceback
-        error_msg = f'解析Excel文件失败: {str(e)}\n{traceback.format_exc()}'
-        print(error_msg)
-        return jsonify({'error': f'解析Excel文件失败: {str(e)}'}), 400
+    def generate():
+        try:
+            import openpyxl
+            file.stream.seek(0)
+            wb = openpyxl.load_workbook(file.stream, read_only=True, data_only=True)
+            ws = wb.active
+            total = max((ws.max_row or 1) - 1, 0)
+            yield json.dumps({'type': 'progress', 'loaded': 0, 'total': total}) + '\n'
+            
+            rows = ws.iter_rows(values_only=True)
+            header = next(rows, None)
+            if header is None:
+                yield json.dumps({'type': 'error', 'error': 'Excel文件为空'}) + '\n'
+                return
+            
+            columns = [str(c) if c is not None else '' for c in header]
+            columns = [c if c else f'column{i+1}' for i, c in enumerate(columns)]
+            
+            data = []
+            loaded = 0
+            for row in rows:
+                row_data = {}
+                for idx, col in enumerate(columns):
+                    val = row[idx] if idx < len(row) else None
+                    if val is None or (isinstance(val, str) and val.strip() == ''):
+                        row_data[col] = None
+                    elif isinstance(val, (datetime, date)):
+                        row_data[col] = val.strftime('%Y-%m-%d')
+                    else:
+                        row_data[col] = str(val)
+                data.append(row_data)
+                loaded += 1
+                yield json.dumps({'type': 'progress', 'loaded': loaded, 'total': total}) + '\n'
+            
+            wb.close()
+            yield json.dumps({
+                'type': 'done',
+                'columns': columns,
+                'data': data,
+                'row_count': len(data),
+                'col_count': len(columns)
+            }) + '\n'
+        except Exception as e:
+            import traceback
+            error_msg = f'解析Excel文件失败: {str(e)}\n{traceback.format_exc()}'
+            print(error_msg)
+            yield json.dumps({'type': 'error', 'error': f'解析Excel文件失败: {str(e)}'}) + '\n'
+    
+    return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
 
 @app.route('/generate_sql', methods=['POST'])
 def generate_sql():
@@ -135,9 +147,12 @@ def generate_sql():
             sql_statements.append(sql)
         
         output = '\n'.join(sql_statements)
+        preview_output = '\n'.join(sql_statements[:50])
         
         return jsonify({
             'sql': output,
+            'preview_sql': preview_output,
+            'preview_count': min(50, len(sql_statements)),
             'count': len(sql_statements)
         })
     except Exception as e:
