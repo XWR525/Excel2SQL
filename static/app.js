@@ -8,7 +8,73 @@ const fileInput = document.getElementById('fileInput');
 const columnSearch = document.getElementById('columnSearch');
 const columnSearchEmpty = document.getElementById('columnSearchEmpty');
 
+let easterEggClicks = 0;
+let easterEggExploded = false;
+let boomSpinCount = 0;
+var creditOriginalText = 'XWR制作';
+
+const EGG_CONSOLE_STYLES = [
+    'color: #e67e22; font-size: 16px; font-weight: bold;',
+    'color: #e74c3c; font-weight: bold;',
+];
+
+const BOOM_REPLIES = [
+    '别转了，小火箭已经被你转晕了。😵',
+    '它的碎片在地上瑟瑟发抖……你都不心疼吗？',
+    '好啦好啦，算你厉害。它还在那儿躺着呢。',
+    '还点呀？小火箭的碎片都快被你踩到了。',
+    '行行行，你是这个页面的王。👑',
+    '给你一朵小红花 🌺，放过它好不好？',
+    '小火箭托梦给我，说它想休息一会儿。',
+    '你是不是在测试这个彩蛋能点多少次？',
+    '它已经炸成分子了，真的转不出东西了。',
+    '你手指不累吗？我看着都酸了。🤌',
+    '再点下去，连 Console 都要罢工了。',
+    '好啦，我替小火箭认输，你赢了。',
+    '🏆 你是冠军。现在可以停了吗？',
+    '还不停？我要去叫 XWR 来了。',
+    '恭喜你解锁终极成就：无情的转圈机器。🎉',
+];
+
 document.addEventListener('DOMContentLoaded', function() {
+    const creditEl = document.getElementById('xwrCredit');
+    const emojiEl = document.querySelector('.header-emoji');
+
+    creditEl.addEventListener('click', function() {
+        easterEggClicks++;
+        if (easterEggClicks === 5) {
+            easterEggClicks = 0;
+            var textMatches = creditEl.textContent.trim() === creditOriginalText;
+
+            if (textMatches) {
+                console.log('%c🍄XWR来喽!', EGG_CONSOLE_STYLES[0]);
+                emojiEl.classList.add('header-emoji-launch');
+                setTimeout(function() {
+                    emojiEl.classList.remove('header-emoji-launch');
+                }, 2800);
+            } else if (!easterEggExploded) {
+                console.log('%c啊哦，小火箭认生，看到陌生署名就吓炸了。💥 下次轻点改嘛～', EGG_CONSOLE_STYLES[1]);
+                emojiEl.textContent = '\uD83D\uDCA5';
+                emojiEl.classList.add('header-emoji-explode');
+                setTimeout(function() {
+                    emojiEl.classList.remove('header-emoji-explode');
+                }, 600);
+                easterEggExploded = true;
+            } else {
+                var idx = Math.min(boomSpinCount, BOOM_REPLIES.length - 1);
+                console.log(BOOM_REPLIES[idx]);
+                boomSpinCount++;
+                emojiEl.classList.add('header-emoji-boom-spin');
+                setTimeout(function() {
+                    emojiEl.classList.remove('header-emoji-boom-spin');
+                }, 1200);
+            }
+        }
+    });
+    document.addEventListener('click', function(e) {
+        if (!creditEl.contains(e.target)) { easterEggClicks = 0; }
+    });
+
     const textarea = document.getElementById('sqlTemplate');
     editor = CodeMirror.fromTextArea(textarea, {
         mode: 'text/x-sql',
