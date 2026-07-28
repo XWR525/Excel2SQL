@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excel SQL生成工具</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍄</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.88em%22 font-size=%2282%22>🍄</text></svg>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
     <style>
@@ -179,7 +179,7 @@
             padding: 5px 12px;
             border-radius: 20px;
             font-size: 13px;
-            margin: 3px;
+            margin: 3px 5px;
             cursor: pointer;
             transition: all 0.3s;
             user-select: none;
@@ -190,6 +190,15 @@
         }
         .column-tag:active {
             transform: scale(0.95);
+        }
+        .column-tag.last-copied {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.22), 0 4px 12px rgba(46, 204, 113, 0.35);
+            transform: scale(1.03);
+        }
+        .column-tag.last-copied:hover {
+            background: linear-gradient(135deg, #2ecc71 0%, #229954 100%);
+            transform: scale(1.06);
         }
         .alert {
             padding: 15px 25px;
@@ -485,7 +494,7 @@
                 tag.addEventListener('click', function() {
                     const placeholder = this.getAttribute('data-copy');
                     const colName = this.getAttribute('data-col');
-                    copyPlaceholder(placeholder, colName);
+                    copyPlaceholder(placeholder, colName, this);
                 });
             });
         }
@@ -494,7 +503,16 @@
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
-        function copyPlaceholder(placeholder, colName) {
+        function markLastCopied(tagElement) {
+            document.querySelectorAll('.column-tag.last-copied').forEach(tag => {
+                tag.classList.remove('last-copied');
+            });
+            if (tagElement) {
+                tagElement.classList.add('last-copied');
+            }
+        }
+
+        function copyPlaceholder(placeholder, colName, tagElement) {
             const textarea = document.createElement('textarea');
             textarea.value = placeholder;
             textarea.style.position = 'fixed';
@@ -509,6 +527,7 @@
             try {
                 const successful = document.execCommand('copy');
                 if (successful) {
+                    markLastCopied(tagElement);
                     showAlert(`已复制[${colName}]`, 'success', 2000);
                 } else {
                     showAlert('复制失败，请手动复制', 'error', 2000);
