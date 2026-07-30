@@ -79,10 +79,9 @@ python app.py
 ```
 flask
 openpyxl
-xlrd
 ```
 
-就三个，没有 pandas，没有数据库，清清爽爽 🧘。
+就俩，没有 pandas，没有数据库，清清爽爽 🧘。
 
 ## ❓ FAQ
 

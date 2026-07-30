@@ -61,6 +61,14 @@ def upload_file():
             
             columns = [str(c) if c is not None else '' for c in header]
             columns = [c if c else f'column{i+1}' for i, c in enumerate(columns)]
+            # 处理重复列名：同名列追加序号
+            seen = {}
+            for i, c in enumerate(columns):
+                if c in seen:
+                    seen[c] += 1
+                    columns[i] = f'{c}_{seen[c]}'
+                else:
+                    seen[c] = 1
             
             data = []
             loaded = 0
